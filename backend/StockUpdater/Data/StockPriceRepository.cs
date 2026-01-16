@@ -3,6 +3,14 @@ using StockUpdater.Models;
 
 namespace StockUpdater.Data;
 
+/// <summary>
+/// Persistence layer for MySQL.
+/// Keeps SQL and database concerns separate from parsing/network logic.
+/// 
+/// Key idea: Upserts are idempotent because the DB has a UNIQUE constraint:
+/// (symbol, timeframe, price_date)
+/// That means running the updater multiple times won't create duplicates.
+/// </summary>
 public sealed class StockPriceRepository
 {
     private readonly string _connectionString;
@@ -12,6 +20,10 @@ public sealed class StockPriceRepository
         _connectionString = connectionString;
     }
 
+    /// <summary>
+    /// Returns the latest date stored for a given symbol/timeframe.
+    /// Used to support incremental updates (only insert newer dates).
+    /// </summary>
     public async Task<DateOnly?> GetMaxDateAsync(string symbol, Timeframe timeframe, CancellationToken ct)
     {
         const string sql = @"
@@ -35,12 +47,19 @@ WHERE symbol = @symbol AND timeframe = @timeframe;";
         if (result is DateTime dt)
             return DateOnly.FromDateTime(dt);
 
+        // Fallback if driver returns string.
         if (result is string s && DateOnly.TryParse(s, out var dateOnly))
             return dateOnly;
 
         throw new InvalidOperationException($"Unexpected MAX(price_date) type: {result.GetType().Name}");
     }
 
+    /// <summary>
+    /// Inserts rows and updates existing rows when the unique key conflicts.
+    /// 
+    /// Note: ExecuteNonQueryAsync returns affected rows per statement, which isn't a reliable "insert vs update" count
+    /// across MySQL versions/settings—so we return "number of executed statements" as a practical metric.
+    /// </summary>
     public async Task<int> UpsertBatchAsync(IEnumerable<StockPriceRow> rows, CancellationToken ct)
     {
         const string sql = @"
@@ -61,12 +80,14 @@ volume      = VALUES(volume);";
         await using var conn = new MySqlConnection(_connectionString);
         await conn.OpenAsync(ct);
 
+        // Transaction gives atomicity and improved performance for multiple statements.
         await using var tx = await conn.BeginTransactionAsync(ct);
 
         int executed = 0;
 
         foreach (var r in rowList)
         {
+            // Parameterized SQL prevents injection issues and handles proper quoting/formatting.
             await using var cmd = new MySqlCommand(sql, conn, (MySqlTransaction)tx);
             cmd.Parameters.AddWithValue("@symbol", r.Symbol);
             cmd.Parameters.AddWithValue("@timeframe", r.Timeframe.ToString());

@@ -4,6 +4,14 @@ using StockUpdater.Models;
 
 namespace StockUpdater.Clients;
 
+/// <summary>
+/// Small client wrapper around Alpha Vantage.
+/// Responsibilities:
+/// - Build correct endpoint URL per timeframe
+/// - Call HTTP GET
+/// - Detect non-data responses (rate limit / information / errors)
+/// - Retry with backoff when rate-limited
+/// </summary>
 public sealed class AlphaVantageClient
 {
     private readonly HttpClient _http;
@@ -32,6 +40,10 @@ public sealed class AlphaVantageClient
         // Outputsize=full ensures you get more history for backfill.
         // Later you can use compact for faster runs if you only want recent.
         string outputSize = timeframe == Timeframe.D ? "compact" : ""; // weekly/monthly ignore outputsize
+
+        // Free-tier behavior note:
+        // - Daily endpoint: outputsize=full may be restricted; use outputsize=compact to avoid premium gating.
+        // - Weekly/Monthly: outputsize is unnecessary, so omit.
         string url = timeframe == Timeframe.D
             ? $"https://www.alphavantage.co/query?function={function}&symbol={Uri.EscapeDataString(symbol)}&outputsize=compact&apikey={Uri.EscapeDataString(_apiKey)}"
             : $"https://www.alphavantage.co/query?function={function}&symbol={Uri.EscapeDataString(symbol)}&apikey={Uri.EscapeDataString(_apiKey)}";
@@ -39,6 +51,7 @@ public sealed class AlphaVantageClient
 
         Exception? last = null;
 
+        // Retry loop: attempts = 1 + retryCount
         for (int attempt = 1; attempt <= _retryCount + 1; attempt++)
         {
             try
@@ -48,6 +61,7 @@ public sealed class AlphaVantageClient
 
                 using var resp = await _http.GetAsync(url, ct);
 
+                // Some rate limits surface as HTTP 429.
                 if (resp.StatusCode == HttpStatusCode.TooManyRequests)
                 {
                     last = new HttpRequestException($"HTTP 429 Too Many Requests for {symbol}-{timeframe}");
@@ -59,7 +73,8 @@ public sealed class AlphaVantageClient
 
                 string json = await resp.Content.ReadAsStringAsync(ct);
 
-                // Alpha Vantage returns a JSON with "Note" when rate-limited
+                // Alpha Vantage often responds with "Note" or "Information" instead of the time series
+                // when rate-limited or restricted. Treat these as retryable.
                 if (ContainsAlphaVantageNote(json, out var note))
                 {
                     last = new InvalidOperationException($"AlphaVantage rate limit Note: {note}");
@@ -67,7 +82,7 @@ public sealed class AlphaVantageClient
                     continue;
                 }
 
-                // Alpha Vantage returns "Error Message" if symbol/function is invalid
+                // "Error Message" typically means invalid symbol or bad request parameters.
                 if (ContainsAlphaVantageError(json, out var errorMsg))
                     throw new InvalidOperationException($"AlphaVantage Error Message: {errorMsg}");
 
@@ -75,6 +90,7 @@ public sealed class AlphaVantageClient
             }
             catch (Exception ex) when (attempt <= _retryCount)
             {
+                // Network blips and temporary issues get a retry with backoff.
                 last = ex;
                 await BackoffDelayAsync(attempt, ct);
             }
@@ -95,7 +111,7 @@ public sealed class AlphaVantageClient
                 return true;
             }
         }
-        catch { /* ignore */ }
+        catch { /* ignore parse errors here; handled later */ }
         return false;
     }
 
@@ -117,7 +133,7 @@ public sealed class AlphaVantageClient
 
     private static Task BackoffDelayAsync(int attempt, CancellationToken ct)
     {
-        // Simple exponential backoff: 2s, 4s, 8s... capped at 30s
+        // Exponential backoff (2s, 4s, 8s...) capped to reduce long waits.
         int delayMs = Math.Min(30_000, (int)Math.Pow(2, attempt) * 1000);
         return Task.Delay(delayMs, ct);
     }

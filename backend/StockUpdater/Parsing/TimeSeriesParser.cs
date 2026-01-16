@@ -4,6 +4,10 @@ using StockUpdater.Models;
 
 namespace StockUpdater.Parsing;
 
+/// <summary>
+/// Parses Alpha Vantage JSON time-series payload into normalized OHLCV rows.
+/// Keeps parsing and data normalization separate from HTTP/network code.
+/// </summary>
 public static class TimeSeriesParser
 {
     public static IReadOnlyList<StockPriceRow> Parse(
@@ -15,6 +19,7 @@ public static class TimeSeriesParser
         using var doc = JsonDocument.Parse(json);
         var root = doc.RootElement;
 
+        // Alpha Vantage uses different property names depending on endpoint.
         string seriesKey = timeframe switch
         {
             Timeframe.D => "Time Series (Daily)",
@@ -23,11 +28,14 @@ public static class TimeSeriesParser
             _ => throw new InvalidOperationException($"Unsupported timeframe: {timeframe}")
         };
 
+        // If the time series section is missing, the response is not the expected payload
+        // (often due to rate limiting or endpoint restrictions).
         if (!root.TryGetProperty(seriesKey, out var seriesElement) || seriesElement.ValueKind != JsonValueKind.Object)
             throw new InvalidOperationException($"Time series section '{seriesKey}' not found. Response may be rate-limited or malformed.");
 
         var rows = new List<StockPriceRow>();
 
+        // Each property is a date string: "YYYY-MM-DD" -> { "1. open": "...", ... }
         foreach (var dateProp in seriesElement.EnumerateObject())
         {
             if (!DateOnly.TryParse(dateProp.Name, CultureInfo.InvariantCulture, DateTimeStyles.None, out var date))
@@ -35,17 +43,18 @@ public static class TimeSeriesParser
 
             var ohlcv = dateProp.Value;
 
-            // AlphaVantage keys: "1. open", "2. high", "3. low", "4. close", "5. volume"
+            // Alpha Vantage field mapping.
             if (!TryGetDecimal(ohlcv, "1. open", out var open) ||
                 !TryGetDecimal(ohlcv, "2. high", out var high) ||
                 !TryGetDecimal(ohlcv, "3. low", out var low) ||
                 !TryGetDecimal(ohlcv, "4. close", out var close) ||
                 !TryGetLong(ohlcv, "5. volume", out var volume))
             {
+                // Skip malformed rows (rare); in production you could log a warning here.
                 continue;
             }
 
-            // Light sanity check
+            // Light sanity check: invalid OHLC ordering is likely bad data.
             if (high < low) continue;
 
             rows.Add(new StockPriceRow(symbol, timeframe, date, open, high, low, close, volume));
@@ -58,7 +67,7 @@ public static class TimeSeriesParser
             rows = rows.Where(r => r.PriceDate >= cutoff).ToList();
         }
 
-        // Return sorted ascending (nice for downstream and debugging)
+        // Sort ascending for easier debugging and for downstream charting APIs (time order).
         return rows.OrderBy(r => r.PriceDate).ToList();
     }
 

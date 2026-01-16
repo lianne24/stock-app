@@ -2,6 +2,13 @@ using StockUpdater.Models;
 
 namespace StockUpdater.Config;
 
+/// <summary>
+/// Central place to read and validate environment variables.
+/// This makes the app behave consistently across:
+/// - local dotnet run
+/// - Docker containers
+/// - Windows Task Scheduler / cron
+/// </summary>
 public static class SettingsLoader
 {
     public static UpdaterSettings LoadFromEnvironment()
@@ -11,6 +18,7 @@ public static class SettingsLoader
         string? symbolsRaw = Environment.GetEnvironmentVariable("STOCK_SYMBOLS");
         string? timeframesRaw = Environment.GetEnvironmentVariable("TIMEFRAMES");
 
+        // Fail fast: if these are missing, the updater cannot do its job.
         if (string.IsNullOrWhiteSpace(apiKey))
             throw new InvalidOperationException("Missing env var: ALPHAVANTAGE_API_KEY");
 
@@ -23,6 +31,7 @@ public static class SettingsLoader
         if (string.IsNullOrWhiteSpace(timeframesRaw))
             throw new InvalidOperationException("Missing env var: TIMEFRAMES (e.g., D or D,W,M)");
 
+        // Normalize symbols: trim whitespace, uppercase, remove duplicates.
         var symbols = symbolsRaw
             .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
             .Select(s => s.ToUpperInvariant())
@@ -32,6 +41,7 @@ public static class SettingsLoader
         if (symbols.Count == 0)
             throw new InvalidOperationException("STOCK_SYMBOLS parsed to 0 symbols. Check formatting.");
 
+        // Parse timeframe list (D/W/M).
         var timeframes = timeframesRaw
             .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
             .Select(ParseTimeframe)
@@ -41,6 +51,7 @@ public static class SettingsLoader
         if (timeframes.Count == 0)
             throw new InvalidOperationException("TIMEFRAMES parsed to 0 values. Use D, W, M.");
 
+        // Optional tuning knobs.
         int maxDaysBack = ReadInt("MAX_DAYS_BACK", 3650);
         int httpTimeout = ReadInt("HTTP_TIMEOUT_SECONDS", 20);
         int retryCount = ReadInt("RETRY_COUNT", 3);
