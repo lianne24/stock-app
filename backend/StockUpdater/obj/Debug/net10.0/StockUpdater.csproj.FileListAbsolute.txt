@@ -13,3 +13,8 @@ D:\VSCODE_PROJECTS\stock-app\backend\StockUpdater\obj\Debug\net10.0\refint\Stock
 D:\VSCODE_PROJECTS\stock-app\backend\StockUpdater\obj\Debug\net10.0\StockUpdater.pdb
 D:\VSCODE_PROJECTS\stock-app\backend\StockUpdater\obj\Debug\net10.0\StockUpdater.genruntimeconfig.cache
 D:\VSCODE_PROJECTS\stock-app\backend\StockUpdater\obj\Debug\net10.0\ref\StockUpdater.dll
+D:\VSCODE_PROJECTS\stock-app\backend\StockUpdater\bin\Debug\net10.0\Microsoft.Extensions.DependencyInjection.Abstractions.dll
+D:\VSCODE_PROJECTS\stock-app\backend\StockUpdater\bin\Debug\net10.0\Microsoft.Extensions.Logging.Abstractions.dll
+D:\VSCODE_PROJECTS\stock-app\backend\StockUpdater\bin\Debug\net10.0\MySqlConnector.dll
+D:\VSCODE_PROJECTS\stock-app\backend\StockUpdater\obj\Debug\net10.0\StockUpdater.csproj.AssemblyReference.cache
+D:\VSCODE_PROJECTS\stock-app\backend\StockUpdater\obj\Debug\net10.0\StockUpd.0C0621D1.Up2Date
