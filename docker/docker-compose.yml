@@ -30,6 +30,17 @@ services:
     networks:
       - default
   
+  api:
+    build:
+      context: ../backend/StockApi
+      dockerfile: Dockerfile
+    container_name: stock_api
+    depends_on:
+      - mysql
+    environment:
+      MYSQL_CONNECTION_STRING: Server=mysql;Port=3306;Database=stockdb;User=stockuser;Password=stockpass;
+    ports:
+      - "8080:8080"
 
 volumes:
   mysql_data:
