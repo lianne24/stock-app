@@ -1,0 +1,43 @@
+# Backend
+
+This project currently contains the **StockUpdater** batch job, which ingests real stock OHLCV data from Alpha Vantage and stores it in MySQL (running in Docker).
+
+### StockUpdater (C# .NET console app)
+**Purpose:** Run on demand or on a schedule (daily) to:
+1. Fetch stock time-series data (Daily; later Weekly/Monthly)
+2. Parse JSON into normalized rows (OHLCV)
+3. Upsert into MySQL (idempotent writes)
+4. Exit with code 0 (success) or 1 (failure)
+
+**Key design choices:**
+- **Idempotent upserts** using a MySQL unique key `(symbol, timeframe, price_date)`.
+- **Incremental updates** by querying max date and inserting only newer records.
+- **Free-tier friendly API usage**:
+  - Daily endpoint uses `outputsize=compact`
+  - Inter-request delay is configurable (`REQUEST_DELAY_MS`)
+
+## Environment variables
+The updater reads all configuration from environment variables:
+
+Required:
+- `ALPHAVANTAGE_API_KEY` - your API key
+- `MYSQL_CONNECTION_STRING` - connection string to MySQL
+- `STOCK_SYMBOLS` - comma-separated (e.g. `AAPL,MSFT,AMZN,GOOGL,TSLA`)
+- `TIMEFRAMES` - `D` (later `D,W,M`)
+
+Optional:
+- `REQUEST_DELAY_MS` (default: 2000)
+- `RETRY_COUNT` (default: 3)
+- `HTTP_TIMEOUT_SECONDS` (default: 20)
+- `MAX_DAYS_BACK` (default: 3650)
+
+## Run locally (dotnet)
+From `backend/StockUpdater`:
+
+PowerShell example:
+```powershell
+$env:ALPHAVANTAGE_API_KEY="YOUR_KEY"
+$env:STOCK_SYMBOLS="AAPL,MSFT,AMZN,GOOGL,TSLA"
+$env:TIMEFRAMES="D"
+$env:MYSQL_CONNECTION_STRING="Server=localhost;Port=3306;Database=stockdb;User=stockuser;Password=stockpass;"
+dotnet run
