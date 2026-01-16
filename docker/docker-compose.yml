@@ -14,5 +14,22 @@ services:
       - mysql_data:/var/lib/mysql
       - ./init:/docker-entrypoint-initdb.d:ro
 
+  updater:
+    build:
+      context: ../backend/StockUpdater
+    container_name: stock_updater
+    depends_on:
+      - mysql
+    environment:
+      ALPHAVANTAGE_API_KEY: ${ALPHAVANTAGE_API_KEY}
+      STOCK_SYMBOLS: AAPL,MSFT,AMZN,GOOGL,TSLA
+      TIMEFRAMES: D
+      REQUEST_DELAY_MS: 2000
+      RETRY_COUNT: 3
+      MYSQL_CONNECTION_STRING: Server=mysql;Port=3306;Database=stockdb;User=stockuser;Password=stockpass;
+    networks:
+      - default
+  
+
 volumes:
   mysql_data:
