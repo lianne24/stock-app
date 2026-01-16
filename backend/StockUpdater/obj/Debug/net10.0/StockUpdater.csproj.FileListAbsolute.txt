@@ -1,0 +1,15 @@
+D:\VSCODE_PROJECTS\stock-app\backend\StockUpdater\bin\Debug\net10.0\StockUpdater.exe
+D:\VSCODE_PROJECTS\stock-app\backend\StockUpdater\bin\Debug\net10.0\StockUpdater.deps.json
+D:\VSCODE_PROJECTS\stock-app\backend\StockUpdater\bin\Debug\net10.0\StockUpdater.runtimeconfig.json
+D:\VSCODE_PROJECTS\stock-app\backend\StockUpdater\bin\Debug\net10.0\StockUpdater.dll
+D:\VSCODE_PROJECTS\stock-app\backend\StockUpdater\bin\Debug\net10.0\StockUpdater.pdb
+D:\VSCODE_PROJECTS\stock-app\backend\StockUpdater\obj\Debug\net10.0\StockUpdater.GeneratedMSBuildEditorConfig.editorconfig
+D:\VSCODE_PROJECTS\stock-app\backend\StockUpdater\obj\Debug\net10.0\StockUpdater.AssemblyInfoInputs.cache
+D:\VSCODE_PROJECTS\stock-app\backend\StockUpdater\obj\Debug\net10.0\StockUpdater.AssemblyInfo.cs
+D:\VSCODE_PROJECTS\stock-app\backend\StockUpdater\obj\Debug\net10.0\StockUpdater.csproj.CoreCompileInputs.cache
+D:\VSCODE_PROJECTS\stock-app\backend\StockUpdater\obj\Debug\net10.0\StockUpdater.sourcelink.json
+D:\VSCODE_PROJECTS\stock-app\backend\StockUpdater\obj\Debug\net10.0\StockUpdater.dll
+D:\VSCODE_PROJECTS\stock-app\backend\StockUpdater\obj\Debug\net10.0\refint\StockUpdater.dll
+D:\VSCODE_PROJECTS\stock-app\backend\StockUpdater\obj\Debug\net10.0\StockUpdater.pdb
+D:\VSCODE_PROJECTS\stock-app\backend\StockUpdater\obj\Debug\net10.0\StockUpdater.genruntimeconfig.cache
+D:\VSCODE_PROJECTS\stock-app\backend\StockUpdater\obj\Debug\net10.0\ref\StockUpdater.dll
