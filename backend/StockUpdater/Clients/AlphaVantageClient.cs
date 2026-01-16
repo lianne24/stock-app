@@ -31,8 +31,11 @@ public sealed class AlphaVantageClient
 
         // Outputsize=full ensures you get more history for backfill.
         // Later you can use compact for faster runs if you only want recent.
-        string url =
-            $"https://www.alphavantage.co/query?function={function}&symbol={Uri.EscapeDataString(symbol)}&outputsize=full&apikey={Uri.EscapeDataString(_apiKey)}";
+        string outputSize = timeframe == Timeframe.D ? "compact" : ""; // weekly/monthly ignore outputsize
+        string url = timeframe == Timeframe.D
+            ? $"https://www.alphavantage.co/query?function={function}&symbol={Uri.EscapeDataString(symbol)}&outputsize=compact&apikey={Uri.EscapeDataString(_apiKey)}"
+            : $"https://www.alphavantage.co/query?function={function}&symbol={Uri.EscapeDataString(symbol)}&apikey={Uri.EscapeDataString(_apiKey)}";
+
 
         Exception? last = null;
 
@@ -118,4 +121,21 @@ public sealed class AlphaVantageClient
         int delayMs = Math.Min(30_000, (int)Math.Pow(2, attempt) * 1000);
         return Task.Delay(delayMs, ct);
     }
+
+    private static bool ContainsAlphaVantageInformation(string json, out string info)
+    {
+        info = "";
+        try
+        {
+            using var doc = JsonDocument.Parse(json);
+            if (doc.RootElement.TryGetProperty("Information", out var i))
+            {
+                info = i.GetString() ?? "";
+                return true;
+            }
+        }
+        catch { /* ignore */ }
+        return false;
+    }
+
 }
