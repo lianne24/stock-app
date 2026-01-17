@@ -1,9 +1,17 @@
 using StockApi.Data;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// ----------------------------
+// Services
+// ----------------------------
+
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+
+// ✅ Add built-in health checks
+builder.Services.AddHealthChecks();
 
 // Read connection string from environment.
 // In Docker: Server=mysql...
@@ -27,12 +35,24 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
+// ----------------------------
+// Middleware
+// ----------------------------
+
 app.UseCors("dev");
 app.UseSwagger();
 app.UseSwaggerUI();
 
-// Health check
-app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
+// ----------------------------
+// Health endpoint (standard)
+// ----------------------------
+
+// ✅ Standard ASP.NET health check endpoint
+app.MapHealthChecks("/health");
+
+// ----------------------------
+// API Endpoints
+// ----------------------------
 
 // List symbols
 app.MapGet("/api/stocks/symbols", async (StockRepository repo, CancellationToken ct) =>
@@ -71,7 +91,6 @@ app.MapGet("/api/stocks/prices", async (
         return Results.BadRequest(new { error = "'from' must be <= 'to'." });
 
     // Safety cap (optional): prevent huge payloads accidentally
-    // Example: 5 years max for daily
     var maxDays = 3650;
     if (timeframe == "D" && (toDate.DayNumber - fromDate.DayNumber) > maxDays)
         return Results.BadRequest(new { error = $"Date range too large for Daily. Max ~{maxDays} days." });
@@ -82,11 +101,13 @@ app.MapGet("/api/stocks/prices", async (
     if (requestedLimit <= 0 || requestedLimit > maxLimit)
         return Results.BadRequest(new { error = $"limit must be between 1 and {maxLimit}." });
 
+    var prices = await repo.GetPricesAsync(
+        symbol, timeframe, fromDate, toDate, requestedLimit, ct);
 
-    var prices = await repo.GetPricesAsync(symbol, timeframe, fromDate, toDate, requestedLimit, ct);
     return Results.Ok(prices);
 });
 
+// Date range endpoint:
 // /api/stocks/range?symbol=AAPL&timeframe=D
 app.MapGet("/api/stocks/range", async (
     string symbol,
@@ -101,10 +122,11 @@ app.MapGet("/api/stocks/range", async (
         return Results.BadRequest(new { error = "Invalid timeframe. Allowed: D, W, M." });
 
     var range = await repo.GetDateRangeAsync(symbol, timeframe, ct);
+
+    // Important: return 200 with nulls OR 404 — your UI already handles both
     return range is null
-        ? Results.NotFound(new { error = "No data found for symbol/timeframe." })
+        ? Results.Ok(new { minDate = (string?)null, maxDate = (string?)null })
         : Results.Ok(range);
 });
-
 
 app.Run();
