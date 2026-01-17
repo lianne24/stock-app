@@ -40,6 +40,7 @@ ORDER BY symbol;";
         string timeframe,
         DateOnly from,
         DateOnly to,
+        int limit,
         CancellationToken ct)
     {
         const string sql = @"
@@ -49,7 +50,8 @@ WHERE symbol = @symbol
   AND timeframe = @timeframe
   AND price_date >= @from
   AND price_date <= @to
-ORDER BY price_date ASC;";
+ORDER BY price_date ASC 
+LIMIT @limit;";
 
         var results = new List<OhlcvDto>();
 
@@ -61,6 +63,7 @@ ORDER BY price_date ASC;";
         cmd.Parameters.AddWithValue("@timeframe", timeframe);
         cmd.Parameters.AddWithValue("@from", from.ToDateTime(TimeOnly.MinValue));
         cmd.Parameters.AddWithValue("@to", to.ToDateTime(TimeOnly.MinValue));
+        cmd.Parameters.AddWithValue("@limit", limit);
 
         await using var reader = await cmd.ExecuteReaderAsync(ct);
         while (await reader.ReadAsync(ct))

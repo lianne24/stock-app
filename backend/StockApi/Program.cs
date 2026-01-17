@@ -39,6 +39,7 @@ app.MapGet("/api/stocks/prices", async (
     string timeframe,
     string from,
     string to,
+    int? limit,
     StockRepository repo,
     CancellationToken ct) =>
 {
@@ -66,7 +67,14 @@ app.MapGet("/api/stocks/prices", async (
     if (timeframe == "D" && (toDate.DayNumber - fromDate.DayNumber) > maxDays)
         return Results.BadRequest(new { error = $"Date range too large for Daily. Max ~{maxDays} days." });
 
-    var prices = await repo.GetPricesAsync(symbol, timeframe, fromDate, toDate, ct);
+    int maxLimit = 5000;
+    int requestedLimit = limit ?? 1000;
+
+    if (requestedLimit <= 0 || requestedLimit > maxLimit)
+        return Results.BadRequest(new { error = $"limit must be between 1 and {maxLimit}." });
+
+
+    var prices = await repo.GetPricesAsync(symbol, timeframe, fromDate, toDate, requestedLimit, ct);
     return Results.Ok(prices);
 });
 
