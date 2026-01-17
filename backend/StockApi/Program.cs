@@ -17,8 +17,17 @@ if (string.IsNullOrWhiteSpace(connString))
 // Register repository as singleton (it holds only a string).
 builder.Services.AddSingleton(new StockRepository(connString));
 
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("dev", policy =>
+        policy.WithOrigins("http://localhost:5173")
+              .AllowAnyHeader()
+              .AllowAnyMethod());
+});
+
 var app = builder.Build();
 
+app.UseCors("dev");
 app.UseSwagger();
 app.UseSwaggerUI();
 
