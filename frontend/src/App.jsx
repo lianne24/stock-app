@@ -134,7 +134,7 @@ export default function App() {
           <div>
             <h1 className="title">Stock Candlestick Viewer</h1>
             <p className="subtitle">
-              Select a stock, timeframe, and date range to visualize OHLC data stored in MySQL.
+              Select a stock, timeframe, and date range to visualize OHLC data.
             </p>
           </div>
 

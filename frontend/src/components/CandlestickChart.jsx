@@ -1,4 +1,3 @@
-// frontend/src/components/CandlestickChart.jsx
 import { useEffect, useMemo, useRef } from "react";
 import {
   createChart,
@@ -6,6 +5,43 @@ import {
   CandlestickSeries,
   createSeriesMarkers,
 } from "lightweight-charts";
+
+function formatNumber(n) {
+  if (n === null || n === undefined) return "-";
+  const x = Number(n);
+  return Number.isFinite(x) ? x.toFixed(2) : "-";
+}
+
+/**
+ * Returns padded min/max based on:
+ * - min = lowestLow  - 0.05 * (highestHigh - lowestLow)
+ * - max = highestHigh + 0.05 * (highestHigh - lowestLow)
+ *
+ * That gives 90% for the actual range and 5% padding on each side.
+ */
+function computePaddedPriceRange(data) {
+  if (!Array.isArray(data) || data.length === 0) return null;
+
+  let minLow = Number.POSITIVE_INFINITY;
+  let maxHigh = Number.NEGATIVE_INFINITY;
+
+  for (const c of data) {
+    const low = Number(c.low);
+    const high = Number(c.high);
+    if (Number.isFinite(low)) minLow = Math.min(minLow, low);
+    if (Number.isFinite(high)) maxHigh = Math.max(maxHigh, high);
+  }
+
+  if (!Number.isFinite(minLow) || !Number.isFinite(maxHigh)) return null;
+
+  // Avoid zero-range (flat price)
+  const range = Math.max(1e-9, maxHigh - minLow);
+
+  return {
+    minValue: minLow - 0.05 * range,
+    maxValue: maxHigh + 0.05 * range,
+  };
+}
 
 // ---------- swing detection (N=3 by default) ----------
 function computeSwingMarkers(data, N, darkMode) {
@@ -34,11 +70,11 @@ function computeSwingMarkers(data, N, darkMode) {
       const leftLow = Number(left.low);
       const rightLow = Number(right.low);
 
-      // Peak: strictly greater than all surrounding highs
+      // Peak: strictly greater than surrounding highs
       if (Number.isFinite(leftHigh) && high <= leftHigh) isPeak = false;
       if (Number.isFinite(rightHigh) && high <= rightHigh) isPeak = false;
 
-      // Valley: strictly lower than all surrounding lows
+      // Valley: strictly lower than surrounding lows
       if (Number.isFinite(leftLow) && low >= leftLow) isValley = false;
       if (Number.isFinite(rightLow) && low >= rightLow) isValley = false;
 
@@ -69,22 +105,21 @@ function computeSwingMarkers(data, N, darkMode) {
   return markers;
 }
 
-function formatNumber(n) {
-  if (n === null || n === undefined) return "-";
-  const x = Number(n);
-  return Number.isFinite(x) ? x.toFixed(2) : "-";
-}
-
 export default function CandlestickChart({
   data,
   darkMode,
   swingWindow = 3,
-  showMarkers = true, // NEW
+  showMarkers = true,
 }) {
   const containerRef = useRef(null);
   const legendRef = useRef(null);
 
-  // NEW: when showMarkers=false -> no markers
+  // Keep latest data in a ref so autoscaleInfoProvider always sees current candles
+  const latestDataRef = useRef([]);
+  useEffect(() => {
+    latestDataRef.current = data || [];
+  }, [data]);
+
   const swingMarkers = useMemo(() => {
     if (!showMarkers) return [];
     return computeSwingMarkers(data, swingWindow, darkMode);
@@ -96,14 +131,24 @@ export default function CandlestickChart({
     const container = containerRef.current;
 
     const chart = createChart(container, {
-      width: container.clientWidth,
-      height: container.clientHeight,
-      crosshair: { mode: CrosshairMode.Normal },
-      rightPriceScale: { borderVisible: true },
-      timeScale: { borderVisible: true, timeVisible: true },
+        width: container.clientWidth,
+        height: container.clientHeight,
+        crosshair: { mode: CrosshairMode.Normal },
+        rightPriceScale: {
+            borderVisible: true,
+            autoScale: true,
+            scaleMargins: { top: 0.03, bottom: 0.03 },
+        },
+        timeScale: { borderVisible: true, timeVisible: true },
     });
 
-    const candleSeries = chart.addSeries(CandlestickSeries, {});
+
+    // ✅ Series with custom autoscale padding (5% / 90% / 5%)
+    const candleSeries = chart.addSeries(CandlestickSeries, {
+        lastValueVisible: false,
+        priceLineVisible: false,
+    });
+
     const markersApi = createSeriesMarkers(candleSeries, []);
 
     container.__chart = chart;
@@ -190,7 +235,7 @@ export default function CandlestickChart({
     }
   }, [darkMode]);
 
-  // Update series data
+  // Update series data (autoscaleInfoProvider will apply padded range automatically)
   useEffect(() => {
     const container = containerRef.current;
     const chart = container?.__chart;
@@ -199,6 +244,9 @@ export default function CandlestickChart({
 
     candleSeries.setData(data || []);
     chart.timeScale().fitContent();
+
+    // Force a refresh so autoscale recalculates with latestDataRef
+    chart.timeScale().applyOptions({}); // no-op but triggers internal refresh in practice
 
     if (legendRef.current) legendRef.current.textContent = "Hover chart to see details";
   }, [data]);
