@@ -98,12 +98,12 @@ html, body {
    Controls row (desktop)
    ========================= */
 
-.controls {
+.controlsRow {
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr 1fr auto;
+  grid-template-columns: 1.2fr 1fr 1fr 1fr auto; /* Load button next to To */
   gap: 14px;
   align-items: end;
-  margin-bottom: 14px;
+  margin-bottom: 10px;
 }
 
 .field label {
@@ -116,12 +116,40 @@ html, body {
 select,
 input[type="date"] {
   width: 100%;
-  padding: 10px;
+  padding: 10px 12px;
   border: 1px solid var(--border);
   background: var(--input);
   color: var(--text);
   border-radius: 12px;
   font-size: 0.95rem;
+  line-height: 1.2;
+}
+
+/* Do NOT remove browser appearance for date input */
+input[type="date"] {
+  appearance: auto;
+  -webkit-appearance: auto;
+}
+
+/* Options row */
+.optionsRow {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin: 6px 0 14px 0;
+}
+
+.checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--muted);
+  user-select: none;
+}
+
+.checkbox input {
+  width: 18px;
+  height: 18px;
 }
 
 .primary {

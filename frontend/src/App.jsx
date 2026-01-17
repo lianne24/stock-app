@@ -1,4 +1,3 @@
-// frontend/src/App.jsx
 import { useEffect, useState } from "react";
 import CandlestickChart from "./components/CandlestickChart";
 import { fetchPrices, fetchRange, fetchSymbols } from "./api/stocksApi";
@@ -28,7 +27,7 @@ export default function App() {
   const [error, setError] = useState("");
   const [candles, setCandles] = useState([]);
 
-  // NEW: show/hide swing markers
+  // show/hide swing markers
   const [showMarkers, setShowMarkers] = useState(true);
 
   // Dark mode persisted in localStorage
@@ -144,7 +143,8 @@ export default function App() {
           </button>
         </header>
 
-        <section className="controls">
+        {/* Controls row: Load button next to "To" */}
+        <section className="controlsRow">
           <div className="field">
             <label>Symbol</label>
             <select value={symbol} onChange={(e) => setSymbol(e.target.value)}>
@@ -189,31 +189,21 @@ export default function App() {
             />
           </div>
 
-          {/* NEW: marker toggle */}
-          <div
-            className="field"
-            style={{
-              display: "flex",
-              gap: 10,
-              alignItems: "center",
-              paddingBottom: 2,
-            }}
-          >
-            <input
-              id="showMarkers"
-              type="checkbox"
-              checked={showMarkers}
-              onChange={(e) => setShowMarkers(e.target.checked)}
-              style={{ width: 18, height: 18 }}
-            />
-            <label htmlFor="showMarkers" style={{ margin: 0 }}>
-              Show Peaks/Valleys (N=3)
-            </label>
-          </div>
-
           <button className="primary" onClick={onLoadChart} disabled={loading || !symbol || !from || !to}>
             {loading ? "Loading..." : "Load Chart"}
           </button>
+        </section>
+
+        {/* Options row: marker toggle moved here */}
+        <section className="optionsRow">
+          <label className="checkbox">
+            <input
+              type="checkbox"
+              checked={showMarkers}
+              onChange={(e) => setShowMarkers(e.target.checked)}
+            />
+            <span>Show Peaks/Valleys (N=3)</span>
+          </label>
         </section>
 
         {error && (
