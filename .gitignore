@@ -2,3 +2,4 @@
 docker/.env
 .env
 *.secrets*
+docker/logs

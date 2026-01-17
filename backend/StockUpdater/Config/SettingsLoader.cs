@@ -55,7 +55,7 @@ public static class SettingsLoader
         int maxDaysBack = ReadInt("MAX_DAYS_BACK", 3650);
         int httpTimeout = ReadInt("HTTP_TIMEOUT_SECONDS", 20);
         int retryCount = ReadInt("RETRY_COUNT", 3);
-        int requestDelay = ReadInt("REQUEST_DELAY_MS", 0);
+        int requestDelay = ReadInt("REQUEST_DELAY_MS", 2000);
 
         return new UpdaterSettings
         {

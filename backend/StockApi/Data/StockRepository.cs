@@ -83,4 +83,47 @@ ORDER BY price_date ASC;";
 
         return results;
     }
+
+    public async Task<DateRangeDto?> GetDateRangeAsync(
+        string symbol,
+        string timeframe,
+        CancellationToken ct)
+    {
+        const string sql = @"
+    SELECT
+    symbol,
+    timeframe,
+    MIN(price_date) AS min_date,
+    MAX(price_date) AS max_date,
+    COUNT(*) AS row_count
+    FROM stock_prices
+    WHERE symbol = @symbol AND timeframe = @timeframe
+    GROUP BY symbol, timeframe;";
+
+        await using var conn = new MySqlConnection(_connectionString);
+        await conn.OpenAsync(ct);
+
+        await using var cmd = new MySqlCommand(sql, conn);
+        cmd.Parameters.AddWithValue("@symbol", symbol);
+        cmd.Parameters.AddWithValue("@timeframe", timeframe);
+
+        await using var reader = await cmd.ExecuteReaderAsync(ct);
+
+        if (!await reader.ReadAsync(ct))
+            return null;
+
+        var s = reader.GetString("symbol");
+        var tf = reader.GetString("timeframe");
+
+        var minDt = reader.GetDateTime("min_date");
+        var maxDt = reader.GetDateTime("max_date");
+
+        var minDate = DateOnly.FromDateTime(minDt);
+        var maxDate = DateOnly.FromDateTime(maxDt);
+
+        var rowCount = reader.GetInt32("row_count");
+
+        return new DateRangeDto(s, tf, minDate, maxDate, rowCount);
+    }
+
 }

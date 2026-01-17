@@ -70,4 +70,24 @@ app.MapGet("/api/stocks/prices", async (
     return Results.Ok(prices);
 });
 
+// /api/stocks/range?symbol=AAPL&timeframe=D
+app.MapGet("/api/stocks/range", async (
+    string symbol,
+    string timeframe,
+    StockRepository repo,
+    CancellationToken ct) =>
+{
+    symbol = symbol.Trim().ToUpperInvariant();
+    timeframe = timeframe.Trim().ToUpperInvariant();
+
+    if (timeframe is not ("D" or "W" or "M"))
+        return Results.BadRequest(new { error = "Invalid timeframe. Allowed: D, W, M." });
+
+    var range = await repo.GetDateRangeAsync(symbol, timeframe, ct);
+    return range is null
+        ? Results.NotFound(new { error = "No data found for symbol/timeframe." })
+        : Results.Ok(range);
+});
+
+
 app.Run();
