@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import CandlestickChart from "./components/CandlestickChart";
 import { fetchPrices, fetchRange, fetchSymbols } from "./api/stocksApi";
 import "./App.css";
@@ -88,14 +88,22 @@ export default function App() {
 
       const rows = await fetchPrices({ symbol, timeframe, from, to, limit: 5000 });
 
-      // Convert API rows to lightweight-charts format
-      const chartData = rows.map(r => ({
-        time: toIsoDate(r.date),     // "YYYY-MM-DD"
-        open: Number(r.open),
-        high: Number(r.high),
-        low: Number(r.low),
-        close: Number(r.close),
-      }));
+      const chartData = rows
+        .map((r) => ({
+          time: toIsoDate(r.date), // "YYYY-MM-DD"
+          open: Number(r.open),
+          high: Number(r.high),
+          low: Number(r.low),
+          close: Number(r.close),
+        }))
+        .filter(
+          (c) =>
+            c.time &&
+            Number.isFinite(c.open) &&
+            Number.isFinite(c.high) &&
+            Number.isFinite(c.low) &&
+            Number.isFinite(c.close)
+        );
 
       setCandles(chartData);
     } catch (e) {
@@ -107,83 +115,107 @@ export default function App() {
   }
 
   return (
-    <div style={{ maxWidth: 1100, margin: "0 auto", padding: 24 }}>
-      <h1 style={{ marginBottom: 8 }}>Stock Candlestick Viewer</h1>
-      <p style={{ marginTop: 0, color: "#6b7280" }}>
-        Select a stock, timeframe, and date range to visualize OHLC data stored in MySQL.
-      </p>
+    <div style={{ minHeight: "100vh", display: "flex", justifyContent: "center" }}>
+      <div style={{ width: "100%", maxWidth: 1100, padding: 24 }}>
+        <h1 style={{ marginBottom: 8 }}>Stock Candlestick Viewer</h1>
+        <p style={{ marginTop: 0, color: "#6b7280" }}>
+          Select a stock, timeframe, and date range to visualize OHLC data stored in MySQL.
+        </p>
 
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "1fr 1fr 1fr 1fr auto",
-          gap: 12,
-          alignItems: "end",
-          marginTop: 16,
-          marginBottom: 16,
-        }}
-      >
-        <div>
-          <label>Symbol</label>
-          <select value={symbol} onChange={(e) => setSymbol(e.target.value)} style={{ width: "100%" }}>
-            {symbols.map((s) => (
-              <option key={s} value={s}>{s}</option>
-            ))}
-          </select>
-        </div>
-
-        <div>
-          <label>Timeframe</label>
-          <select value={timeframe} onChange={(e) => setTimeframe(e.target.value)} style={{ width: "100%" }}>
-            {TIMEFRAMES.map((t) => (
-              <option key={t.value} value={t.value}>{t.label}</option>
-            ))}
-          </select>
-        </div>
-
-        <div>
-          <label>From</label>
-          <input
-            type="date"
-            value={from}
-            min={minDate}
-            max={to || maxDate}
-            onChange={(e) => setFrom(e.target.value)}
-            style={{ width: "100%" }}
-          />
-        </div>
-
-        <div>
-          <label>To</label>
-          <input
-            type="date"
-            value={to}
-            min={from || minDate}
-            max={maxDate}
-            onChange={(e) => setTo(e.target.value)}
-            style={{ width: "100%" }}
-          />
-        </div>
-
-        <button onClick={onLoadChart} disabled={loading || !symbol || !from || !to}>
-          {loading ? "Loading..." : "Load Chart"}
-        </button>
-      </div>
-
-      {error && (
-        <div style={{ marginBottom: 12, padding: 12, border: "1px solid #fecaca", background: "#fef2f2", borderRadius: 12 }}>
-          <strong>Error:</strong> {error}
-        </div>
-      )}
-
-      <div style={{ marginTop: 16 }}>
-        {candles.length === 0 ? (
-          <div style={{ padding: 16, border: "1px dashed #d1d5db", borderRadius: 12, color: "#6b7280" }}>
-            No data loaded yet. Choose a range and click <strong>Load Chart</strong>.
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "1fr 1fr 1fr 1fr auto",
+            gap: 12,
+            alignItems: "end",
+            marginTop: 16,
+            marginBottom: 16,
+          }}
+        >
+          <div>
+            <label>Symbol</label>
+            <select value={symbol} onChange={(e) => setSymbol(e.target.value)} style={{ width: "100%" }}>
+              {symbols.map((s) => (
+                <option key={s} value={s}>
+                  {s}
+                </option>
+              ))}
+            </select>
           </div>
-        ) : (
-          <CandlestickChart data={candles} />
+
+          <div>
+            <label>Timeframe</label>
+            <select value={timeframe} onChange={(e) => setTimeframe(e.target.value)} style={{ width: "100%" }}>
+              {TIMEFRAMES.map((t) => (
+                <option key={t.value} value={t.value}>
+                  {t.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label>From</label>
+            <input
+              type="date"
+              value={from}
+              min={minDate}
+              max={to || maxDate}
+              onChange={(e) => setFrom(e.target.value)}
+              style={{ width: "100%" }}
+            />
+          </div>
+
+          <div>
+            <label>To</label>
+            <input
+              type="date"
+              value={to}
+              min={from || minDate}
+              max={maxDate}
+              onChange={(e) => setTo(e.target.value)}
+              style={{ width: "100%" }}
+            />
+          </div>
+
+          <button onClick={onLoadChart} disabled={loading || !symbol || !from || !to}>
+            {loading ? "Loading..." : "Load Chart"}
+          </button>
+        </div>
+
+        {error && (
+          <div
+            style={{
+              marginBottom: 12,
+              padding: 12,
+              border: "1px solid #fecaca",
+              background: "#fef2f2",
+              borderRadius: 12,
+            }}
+          >
+            <strong>Error:</strong> {error}
+          </div>
         )}
+
+        {/* Centered chart area */}
+        <div style={{ marginTop: 16, display: "flex", justifyContent: "center" }}>
+          <div style={{ width: "100%", maxWidth: 6000, height: "60vh", minHeight: 340 }}>
+            {candles.length === 0 ? (
+              <div
+                style={{
+                  padding: 16,
+                  border: "1px dashed #d1d5db",
+                  borderRadius: 12,
+                  color: "#6b7280",
+                }}
+              >
+                No data loaded yet. Choose a range and click <strong>Load Chart</strong>.
+              </div>
+            ) : (
+              <CandlestickChart data={candles} />
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );

@@ -1,11 +1,7 @@
 import { useEffect, useRef } from "react";
 import { createChart, CrosshairMode, CandlestickSeries } from "lightweight-charts";
 
-/**
- * data: array of { time: "YYYY-MM-DD", open, high, low, close }
- * height: number
- */
-export default function CandlestickChart({ data, height = 420 }) {
+export default function CandlestickChart({ data }) {
   const containerRef = useRef(null);
 
   useEffect(() => {
@@ -13,7 +9,7 @@ export default function CandlestickChart({ data, height = 420 }) {
 
     const chart = createChart(containerRef.current, {
       width: containerRef.current.clientWidth,
-      height,
+      height: containerRef.current.clientHeight,
       layout: { background: { color: "#ffffff" }, textColor: "#111827" },
       grid: { vertLines: { visible: true }, horzLines: { visible: true } },
       crosshair: { mode: CrosshairMode.Normal },
@@ -21,19 +17,24 @@ export default function CandlestickChart({ data, height = 420 }) {
       timeScale: { borderVisible: true, timeVisible: true },
     });
 
-    // ✅ NEW API: addSeries(CandlestickSeries, options)
     const candleSeries = chart.addSeries(CandlestickSeries, {});
-
     containerRef.current.__chart = chart;
     containerRef.current.__candleSeries = candleSeries;
 
+    const applySize = () => {
+      if (!containerRef.current) return;
+      chart.applyOptions({
+        width: containerRef.current.clientWidth,
+        height: containerRef.current.clientHeight,
+      });
+    };
+
+    applySize();
     chart.timeScale().fitContent();
 
     let ro = null;
     if (typeof ResizeObserver !== "undefined") {
-      ro = new ResizeObserver(() => {
-        chart.applyOptions({ width: containerRef.current.clientWidth });
-      });
+      ro = new ResizeObserver(() => applySize());
       ro.observe(containerRef.current);
     }
 
@@ -41,7 +42,7 @@ export default function CandlestickChart({ data, height = 420 }) {
       if (ro) ro.disconnect();
       chart.remove();
     };
-  }, [height]);
+  }, []);
 
   useEffect(() => {
     const chart = containerRef.current?.__chart;
@@ -57,6 +58,7 @@ export default function CandlestickChart({ data, height = 420 }) {
       ref={containerRef}
       style={{
         width: "100%",
+        height: "100%",
         border: "1px solid #e5e7eb",
         borderRadius: 12,
         overflow: "hidden",
