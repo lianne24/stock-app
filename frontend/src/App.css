@@ -49,14 +49,14 @@ html, body {
   display: flex;
   align-items: center;       /* vertical center */
   justify-content: center;   /* horizontal center */
-  padding: 24px;
+  padding: 8px;
   background: var(--bg);
   color: var(--text);
 }
 
 /* Main container — wide desktop */
 .card {
-  width: min(1600px, 96vw);  /* expand on large screens */
+  width: min(2000px, 100vw);  /* expand on large screens */
   background: var(--card);
   border: 1px solid var(--border);
   border-radius: 16px;
