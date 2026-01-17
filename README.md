@@ -29,15 +29,21 @@ and appending logs to `logs/updater.log`.
 1) Start MySQL:
 ```bash
 cd docker
+#Build and run mysql
+docker compose build mysql
 docker compose up -d mysql #DB up
 
-#Run updater
+#Build and run updater
+docker compose build updater
 docker compose run --rm updater #Updater run (daily) - task scheduled
 
-#Start API
+#Build and start API
+docker compose build stockapi
 docker compose up -d api #API up
 
 #Start UI
 cd ..\frontend
 npm run dev
 
+#Rebuilds what changed
+docker compose up -d --build

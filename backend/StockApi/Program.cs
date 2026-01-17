@@ -101,10 +101,12 @@ app.MapGet("/api/stocks/prices", async (
     if (requestedLimit <= 0 || requestedLimit > maxLimit)
         return Results.BadRequest(new { error = $"limit must be between 1 and {maxLimit}." });
 
-    var prices = await repo.GetPricesAsync(
-        symbol, timeframe, fromDate, toDate, requestedLimit, ct);
+    var prices = timeframe == "D"
+        ? await repo.GetPricesAsync(symbol, timeframe, fromDate, toDate, requestedLimit, ct)
+        : await repo.GetAggPricesAsync(symbol, timeframe, fromDate, toDate, requestedLimit, ct);
 
     return Results.Ok(prices);
+
 });
 
 // Date range endpoint:
@@ -121,12 +123,14 @@ app.MapGet("/api/stocks/range", async (
     if (timeframe is not ("D" or "W" or "M"))
         return Results.BadRequest(new { error = "Invalid timeframe. Allowed: D, W, M." });
 
-    var range = await repo.GetDateRangeAsync(symbol, timeframe, ct);
+    var range = timeframe == "D"
+        ? await repo.GetDateRangeAsync(symbol, timeframe, ct)
+        : await repo.GetAggDateRangeAsync(symbol, timeframe, ct);
 
-    // Important: return 200 with nulls OR 404 — your UI already handles both
     return range is null
         ? Results.Ok(new { minDate = (string?)null, maxDate = (string?)null })
         : Results.Ok(range);
+
 });
 
 app.Run();
