@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import CandlestickChart from "./components/CandlestickChart";
 import { fetchPrices, fetchRange, fetchSymbols } from "./api/stocksApi";
 import "./App.css";
@@ -10,7 +10,6 @@ const TIMEFRAMES = [
 ];
 
 function toIsoDate(dateStr) {
-  // Ensures "YYYY-MM-DD"
   return dateStr?.slice(0, 10);
 }
 
@@ -28,7 +27,18 @@ export default function App() {
   const [error, setError] = useState("");
   const [candles, setCandles] = useState([]);
 
-  // 1) Load symbols on startup
+  // Dark mode persisted in localStorage
+  const [darkMode, setDarkMode] = useState(() => {
+    const saved = localStorage.getItem("darkMode");
+    return saved ? saved === "true" : false;
+  });
+
+  useEffect(() => {
+    localStorage.setItem("darkMode", String(darkMode));
+    document.documentElement.dataset.theme = darkMode ? "dark" : "light";
+  }, [darkMode]);
+
+  // Load symbols on startup
   useEffect(() => {
     (async () => {
       try {
@@ -42,7 +52,7 @@ export default function App() {
     })();
   }, []);
 
-  // 2) Whenever symbol or timeframe changes, fetch available range
+  // Fetch available range when symbol/timeframe changes
   useEffect(() => {
     if (!symbol || !timeframe) return;
 
@@ -56,7 +66,7 @@ export default function App() {
         setMinDate(min);
         setMaxDate(max);
 
-        // Default date pickers: last ~90 days if possible, else full range
+        // Default: last ~90 days (bounded)
         setTo(max);
         if (min && max) {
           const maxD = new Date(max + "T00:00:00");
@@ -78,7 +88,6 @@ export default function App() {
     })();
   }, [symbol, timeframe]);
 
-  // 3) Load chart data on button click
   async function onLoadChart() {
     if (!symbol || !timeframe || !from || !to) return;
 
@@ -95,6 +104,7 @@ export default function App() {
           high: Number(r.high),
           low: Number(r.low),
           close: Number(r.close),
+          volume: Number(r.volume),
         }))
         .filter(
           (c) =>
@@ -115,26 +125,25 @@ export default function App() {
   }
 
   return (
-    <div style={{ minHeight: "100vh", display: "flex", justifyContent: "center" }}>
-      <div style={{ width: "100%", maxWidth: 1100, padding: 24 }}>
-        <h1 style={{ marginBottom: 8 }}>Stock Candlestick Viewer</h1>
-        <p style={{ marginTop: 0, color: "#6b7280" }}>
-          Select a stock, timeframe, and date range to visualize OHLC data stored in MySQL.
-        </p>
-
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "1fr 1fr 1fr 1fr auto",
-            gap: 12,
-            alignItems: "end",
-            marginTop: 16,
-            marginBottom: 16,
-          }}
-        >
+    <div className="page">
+      <div className="card">
+        <header className="header">
           <div>
+            <h1 className="title">Stock Candlestick Viewer</h1>
+            <p className="subtitle">
+              Select a stock, timeframe, and date range to visualize OHLC data stored in MySQL.
+            </p>
+          </div>
+
+          <button className="toggle" onClick={() => setDarkMode((v) => !v)}>
+            {darkMode ? "Light mode" : "Dark mode"}
+          </button>
+        </header>
+
+        <section className="controls">
+          <div className="field">
             <label>Symbol</label>
-            <select value={symbol} onChange={(e) => setSymbol(e.target.value)} style={{ width: "100%" }}>
+            <select value={symbol} onChange={(e) => setSymbol(e.target.value)}>
               {symbols.map((s) => (
                 <option key={s} value={s}>
                   {s}
@@ -143,9 +152,9 @@ export default function App() {
             </select>
           </div>
 
-          <div>
+          <div className="field">
             <label>Timeframe</label>
-            <select value={timeframe} onChange={(e) => setTimeframe(e.target.value)} style={{ width: "100%" }}>
+            <select value={timeframe} onChange={(e) => setTimeframe(e.target.value)}>
               {TIMEFRAMES.map((t) => (
                 <option key={t.value} value={t.value}>
                   {t.label}
@@ -154,7 +163,7 @@ export default function App() {
             </select>
           </div>
 
-          <div>
+          <div className="field">
             <label>From</label>
             <input
               type="date"
@@ -162,11 +171,10 @@ export default function App() {
               min={minDate}
               max={to || maxDate}
               onChange={(e) => setFrom(e.target.value)}
-              style={{ width: "100%" }}
             />
           </div>
 
-          <div>
+          <div className="field">
             <label>To</label>
             <input
               type="date"
@@ -174,48 +182,29 @@ export default function App() {
               min={from || minDate}
               max={maxDate}
               onChange={(e) => setTo(e.target.value)}
-              style={{ width: "100%" }}
             />
           </div>
 
-          <button onClick={onLoadChart} disabled={loading || !symbol || !from || !to}>
+          <button className="primary" onClick={onLoadChart} disabled={loading || !symbol || !from || !to}>
             {loading ? "Loading..." : "Load Chart"}
           </button>
-        </div>
+        </section>
 
         {error && (
-          <div
-            style={{
-              marginBottom: 12,
-              padding: 12,
-              border: "1px solid #fecaca",
-              background: "#fef2f2",
-              borderRadius: 12,
-            }}
-          >
+          <div className="error">
             <strong>Error:</strong> {error}
           </div>
         )}
 
-        {/* Centered chart area */}
-        <div style={{ marginTop: 16, display: "flex", justifyContent: "center" }}>
-          <div style={{ width: "100%", maxWidth: 6000, height: "60vh", minHeight: 340 }}>
-            {candles.length === 0 ? (
-              <div
-                style={{
-                  padding: 16,
-                  border: "1px dashed #d1d5db",
-                  borderRadius: 12,
-                  color: "#6b7280",
-                }}
-              >
-                No data loaded yet. Choose a range and click <strong>Load Chart</strong>.
-              </div>
-            ) : (
-              <CandlestickChart data={candles} />
-            )}
-          </div>
-        </div>
+        <section className="chartWrap">
+          {candles.length === 0 ? (
+            <div className="empty">
+              No data loaded yet. Choose a range and click <strong>Load Chart</strong>.
+            </div>
+          ) : (
+            <CandlestickChart data={candles} darkMode={darkMode} />
+          )}
+        </section>
       </div>
     </div>
   );
