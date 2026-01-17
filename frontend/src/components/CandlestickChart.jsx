@@ -1,9 +1,73 @@
-import { useEffect, useRef } from "react";
+// frontend/src/components/CandlestickChart.jsx
+import { useEffect, useMemo, useRef } from "react";
 import {
   createChart,
   CrosshairMode,
   CandlestickSeries,
+  createSeriesMarkers,
 } from "lightweight-charts";
+
+// ---------- swing detection (N=3 by default) ----------
+function computeSwingMarkers(data, N, darkMode) {
+  if (!Array.isArray(data) || data.length < 2 * N + 1) return [];
+
+  const markers = [];
+  const peakColor = darkMode ? "#fca5a5" : "#b91c1c"; // red-ish
+  const valleyColor = darkMode ? "#86efac" : "#166534"; // green-ish
+
+  for (let i = N; i < data.length - N; i++) {
+    const c = data[i];
+    const high = Number(c.high);
+    const low = Number(c.low);
+
+    if (!Number.isFinite(high) || !Number.isFinite(low)) continue;
+
+    let isPeak = true;
+    let isValley = true;
+
+    for (let k = 1; k <= N; k++) {
+      const left = data[i - k];
+      const right = data[i + k];
+
+      const leftHigh = Number(left.high);
+      const rightHigh = Number(right.high);
+      const leftLow = Number(left.low);
+      const rightLow = Number(right.low);
+
+      // Peak: strictly greater than all surrounding highs
+      if (Number.isFinite(leftHigh) && high <= leftHigh) isPeak = false;
+      if (Number.isFinite(rightHigh) && high <= rightHigh) isPeak = false;
+
+      // Valley: strictly lower than all surrounding lows
+      if (Number.isFinite(leftLow) && low >= leftLow) isValley = false;
+      if (Number.isFinite(rightLow) && low >= rightLow) isValley = false;
+
+      if (!isPeak && !isValley) break;
+    }
+
+    if (isPeak) {
+      markers.push({
+        time: c.time,
+        position: "aboveBar",
+        shape: "arrowDown",
+        color: peakColor,
+        text: "P",
+      });
+    }
+
+    if (isValley) {
+      markers.push({
+        time: c.time,
+        position: "belowBar",
+        shape: "arrowUp",
+        color: valleyColor,
+        text: "V",
+      });
+    }
+  }
+
+  return markers;
+}
 
 function formatNumber(n) {
   if (n === null || n === undefined) return "-";
@@ -11,9 +75,20 @@ function formatNumber(n) {
   return Number.isFinite(x) ? x.toFixed(2) : "-";
 }
 
-export default function CandlestickChart({ data, darkMode }) {
+export default function CandlestickChart({
+  data,
+  darkMode,
+  swingWindow = 3,
+  showMarkers = true, // NEW
+}) {
   const containerRef = useRef(null);
   const legendRef = useRef(null);
+
+  // NEW: when showMarkers=false -> no markers
+  const swingMarkers = useMemo(() => {
+    if (!showMarkers) return [];
+    return computeSwingMarkers(data, swingWindow, darkMode);
+  }, [data, swingWindow, darkMode, showMarkers]);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -29,9 +104,11 @@ export default function CandlestickChart({ data, darkMode }) {
     });
 
     const candleSeries = chart.addSeries(CandlestickSeries, {});
+    const markersApi = createSeriesMarkers(candleSeries, []);
 
     container.__chart = chart;
     container.__candleSeries = candleSeries;
+    container.__markersApi = markersApi;
 
     // Tooltip / crosshair legend
     const onCrosshair = (param) => {
@@ -49,9 +126,7 @@ export default function CandlestickChart({ data, darkMode }) {
         return;
       }
 
-      // param.time is "YYYY-MM-DD" when you provide string time
       const date = typeof param.time === "string" ? param.time : String(param.time);
-
       legend.textContent =
         `${date}  O:${formatNumber(c.open)}  H:${formatNumber(c.high)}  ` +
         `L:${formatNumber(c.low)}  C:${formatNumber(c.close)}`;
@@ -84,7 +159,38 @@ export default function CandlestickChart({ data, darkMode }) {
     };
   }, []);
 
-  // Update data when it changes
+  // Apply theme (chart + legend styles)
+  useEffect(() => {
+    const container = containerRef.current;
+    const chart = container?.__chart;
+    if (!chart) return;
+
+    if (darkMode) {
+      chart.applyOptions({
+        layout: { background: { color: "#0f172a" }, textColor: "#e5e7eb" },
+        grid: { vertLines: { color: "#243044" }, horzLines: { color: "#243044" } },
+      });
+
+      if (legendRef.current) {
+        legendRef.current.style.background = "rgba(15, 23, 42, 0.75)";
+        legendRef.current.style.color = "#e5e7eb";
+        legendRef.current.style.borderColor = "#243044";
+      }
+    } else {
+      chart.applyOptions({
+        layout: { background: { color: "#ffffff" }, textColor: "#111827" },
+        grid: { vertLines: { color: "#e5e7eb" }, horzLines: { color: "#e5e7eb" } },
+      });
+
+      if (legendRef.current) {
+        legendRef.current.style.background = "rgba(255, 255, 255, 0.85)";
+        legendRef.current.style.color = "#111827";
+        legendRef.current.style.borderColor = "#e5e7eb";
+      }
+    }
+  }, [darkMode]);
+
+  // Update series data
   useEffect(() => {
     const container = containerRef.current;
     const chart = container?.__chart;
@@ -94,46 +200,17 @@ export default function CandlestickChart({ data, darkMode }) {
     candleSeries.setData(data || []);
     chart.timeScale().fitContent();
 
-    // Reset legend
-    if (legendRef.current) {
-      legendRef.current.textContent = "Hover chart to see details";
-    }
+    if (legendRef.current) legendRef.current.textContent = "Hover chart to see details";
   }, [data]);
 
-  // Apply theme (light/dark) when toggled
+  // Update markers (P/V)
   useEffect(() => {
     const container = containerRef.current;
-    const chart = container?.__chart;
-    if (!chart) return;
+    const markersApi = container?.__markersApi;
+    if (!markersApi) return;
 
-    if (darkMode) {
-      chart.applyOptions({
-        layout: { background: { color: "#0f172a" }, textColor: "#e5e7eb" },
-        grid: {
-          vertLines: { color: "#243044" },
-          horzLines: { color: "#243044" },
-        },
-      });
-      if (legendRef.current) {
-        legendRef.current.style.background = "rgba(15, 23, 42, 0.75)";
-        legendRef.current.style.color = "#e5e7eb";
-        legendRef.current.style.borderColor = "#243044";
-      }
-    } else {
-      chart.applyOptions({
-        layout: { background: { color: "#ffffff" }, textColor: "#111827" },
-        grid: {
-          vertLines: { color: "#e5e7eb" },
-          horzLines: { color: "#e5e7eb" },
-        },
-      });
-      if (legendRef.current) {
-        legendRef.current.style.background = "rgba(255, 255, 255, 0.85)";
-        legendRef.current.style.color = "#111827";
-        legendRef.current.style.borderColor = "#e5e7eb";
-      }
-    }
-  }, [darkMode]);
+    markersApi.setMarkers(swingMarkers);
+  }, [swingMarkers]);
 
   return (
     <div className="chartBox" style={{ position: "relative" }}>
