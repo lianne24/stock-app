@@ -1,0 +1,74 @@
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: stock_mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    # ✅ Do NOT publish 3306 on the VM (keep DB private)
+    # ports:
+    #   - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./init:/docker-entrypoint-initdb.d:ro
+
+  updater:
+    build:
+      context: ../backend/StockUpdater
+    container_name: stock_updater
+    depends_on:
+      - mysql
+    environment:
+      ALPHAVANTAGE_API_KEY: ${ALPHAVANTAGE_API_KEY}
+      STOCK_SYMBOLS: ${STOCK_SYMBOLS}
+      TIMEFRAMES: ${TIMEFRAMES}
+      REQUEST_DELAY_MS: ${REQUEST_DELAY_MS}
+      RETRY_COUNT: ${RETRY_COUNT}
+      MYSQL_CONNECTION_STRING: ${MYSQL_CONNECTION_STRING}
+    restart: "no"
+    # ✅ Don't run continuously in prod. We'll run it on-demand or via cron:
+    profiles: ["manual"]
+
+  api:
+    build:
+      context: ../backend/StockApi
+      dockerfile: Dockerfile
+    container_name: stock_api
+    depends_on:
+      - mysql
+    environment:
+      MYSQL_CONNECTION_STRING: ${MYSQL_CONNECTION_STRING}
+      ASPNETCORE_URLS: http://0.0.0.0:8080
+    restart: unless-stopped
+    # ✅ Do NOT publish 8080 publicly; nginx will proxy to it
+    # ports:
+    #   - "8080:8080"
+
+  frontend:
+    build:
+      context: ../frontend
+      dockerfile: Dockerfile
+    container_name: stock_frontend
+    restart: unless-stopped
+
+  reverse-proxy:
+    image: nginx:alpine
+    container_name: stock_proxy
+    depends_on:
+      - api
+      - frontend
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      # Leave these for later when we add HTTPS (certbot):
+      - ./certbot/www:/var/www/certbot:ro
+      - ./certbot/conf:/etc/letsencrypt:ro
+    restart: unless-stopped
+
+volumes:
+  mysql_data:
