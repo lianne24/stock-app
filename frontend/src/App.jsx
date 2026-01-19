@@ -132,7 +132,7 @@ export default function App() {
       <div className="card">
         <header className="header">
           <div>
-            <h1 className="title">Stock Candlestick Viewer</h1>
+            <h1 className="title">Stock Candlestick Analyzer</h1>
             <p className="subtitle">
               Select a stock, timeframe, and date range to visualize OHLC data.
             </p>
